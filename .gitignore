@@ -1,0 +1,13 @@
+.env
+.env.*
+!.env.example
+.local/
+**/target/
+**/node_modules/
+**/dist/
+*.log
+uploads/
+.idea/
+.vscode/
+*.iml
+__pycache__/

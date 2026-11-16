@@ -1,0 +1,12 @@
+package com.mediaflow.common;
+
+import org.springframework.http.HttpStatus;
+
+public class BusinessException extends RuntimeException {
+  public final HttpStatus status;
+
+  public BusinessException(HttpStatus status, String message) {
+    super(message);
+    this.status = status;
+  }
+}

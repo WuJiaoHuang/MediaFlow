@@ -1,0 +1,28 @@
+server:
+  port: ${SERVER_PORT:8080}
+  error:
+    include-message: never
+spring:
+  application:
+    name: mediaflow
+  datasource:
+    url: ${DB_URL:jdbc:mysql://localhost:3306/mediaflow?useUnicode=true&characterEncoding=UTF-8&serverTimezone=Asia/Shanghai}
+    username: ${DB_USERNAME:root}
+    password: ${DB_PASSWORD}
+  jackson:
+    time-zone: Asia/Shanghai
+mybatis-plus:
+  configuration:
+    map-underscore-to-camel-case: true
+  global-config:
+    banner: false
+mediaflow:
+  jwt-secret: ${JWT_SECRET}
+  token-ttl-seconds: ${TOKEN_TTL_SECONDS:1800}
+logging:
+  level:
+    root: INFO
+    com.mediaflow: INFO
+springdoc:
+  swagger-ui:
+    path: /swagger-ui.html
