@@ -9,8 +9,9 @@ for line in (ROOT/'.env').read_text(encoding='utf-8-sig').splitlines():
  if '=' in line and not line.startswith('#'):
   k,v=line.split('=',1);config[k]=v
 checks=[]
-def request(method,path,expected=200,data=None,token=None):
- headers={'Content-Type':'application/json'}
+def request(method,path,expected=200,data=None,token=None,content_type="application/json",accept=None):
+ headers={'Content-Type':content_type}
+ if accept:headers['Accept']=accept
  if token:headers['Authorization']='Bearer '+token
  req=urllib.request.Request(BASE+path,data=None if data is None else json.dumps(data).encode(),headers=headers,method=method)
  try:
@@ -24,6 +25,9 @@ def login(user,password):return request('POST','/api/auth/login',data={'username
 uid=None
 try:
  admin=login('admin','Admin@123456')
+ request('GET','/api/auth/login',405)
+ request('POST','/api/auth/login',415,{},content_type='text/plain')
+ request('GET','/api/auth/me',406,token=admin,accept='application/xml')
  editor=login('editor01','Editor@123456')
  reviewer=login('reviewer01','Reviewer@123456')
  request('POST','/api/auth/login',401,{'username':'admin','password':'Wrong@123456'})

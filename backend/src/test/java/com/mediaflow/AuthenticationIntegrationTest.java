@@ -253,6 +253,32 @@ class AuthenticationIntegrationTest {
   }
 
   @Test
+  void unsupportedMethodsKeep405AndAllowHeader() throws Exception {
+    mvc.perform(get("/api/auth/login"))
+        .andExpect(status().isMethodNotAllowed())
+        .andExpect(header().string("Allow", org.hamcrest.Matchers.containsString("POST")))
+        .andExpect(jsonPath("$.code").value(40500));
+  }
+
+  @Test
+  void unsupportedContentTypeKeeps415() throws Exception {
+    mvc.perform(post("/api/auth/login").contentType("text/plain").content("not JSON"))
+        .andExpect(status().isUnsupportedMediaType())
+        .andExpect(jsonPath("$.code").value(41500));
+  }
+
+  @Test
+  void unsupportedAcceptKeeps406() throws Exception {
+    mvc.perform(
+            get("/api/auth/me")
+                .header("Authorization", "Bearer " + token("admin"))
+                .accept("application/xml"))
+        .andExpect(status().isNotAcceptable())
+        .andExpect(content().contentTypeCompatibleWith("application/json"))
+        .andExpect(jsonPath("$.code").value(40600));
+  }
+
+  @Test
   void serverErrorsReturnFailureEnvelope() throws Exception {
     String t = token("admin");
     try {

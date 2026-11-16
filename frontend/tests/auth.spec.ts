@@ -42,7 +42,7 @@ for (const [user, password] of [
       0,
     );
     await page.goto("/admin/users");
-    await expect(page).toHaveURL("http://127.0.0.1:5173/");
+    await expect.poll(() => new URL(page.url()).pathname).toBe("/");
     const status = await page.evaluate(async () => {
       const r = await fetch("/api/admin/users", {
         headers: {

@@ -73,7 +73,7 @@ npm ci
 npm run dev
 ```
 
-打开 [前端](http://127.0.0.1:5173)，后端默认 [http://localhost:8080](http://localhost:8080)，[Swagger UI](http://localhost:8080/swagger-ui.html)。Vite 将 `/api` 代理到 `127.0.0.1:8080`，开发无需跨域；更改后端端口时同步修改 Vite 代理。前端支持刷新恢复登录，同一标签页通过 sessionStorage 保存短期 Token。
+打开 [前端](http://127.0.0.1:5173)，后端默认 [http://localhost:8080](http://localhost:8080)，[Swagger UI](http://localhost:8080/swagger-ui.html)。Vite 将 `/api` 代理到 `127.0.0.1:8080`，开发无需跨域；自定义后端地址可设置前端进程环境变量 `MEDIAFLOW_BACKEND_URL`（默认 `http://127.0.0.1:8080`）。前端支持刷新恢复登录，同一标签页通过 sessionStorage 保存短期 Token。
 
 ## 仅本地开发测试账号
 
@@ -87,7 +87,7 @@ npm run dev
 
 ## 主要接口
 
-所有响应为 `{ "code": 0, "message": "success", "data": ... }`，失败使用对应 HTTP 状态与非零业务码。
+所有响应为 `{ "code": 0, "message": "success", "data": ... }`，失败使用对应 HTTP 状态与非零业务码。错误方法 / 响应格式 / 请求内容类型分别保留 HTTP 405 / 406 / 415，405 同时返回 Allow 头。
 
 | 方法 | 路径 | 权限 / 行为 |
 | --- | --- | --- |
@@ -134,3 +134,15 @@ python scripts/smoke-test.py
 - Stage 5：修改前后值审计、统计口径治理及生产运维加固。
 
 [架构](docs/architecture.md) · [数据库设计](docs/database-design.md) · [安全](docs/security.md)
+
+## 并行启动与自定义验收端口
+
+如默认端口已有实例，可在 `.env` 中设置 `SERVER_PORT=8180` 后启动另一后端；不需要停止其他进程。前端在另一终端运行：
+
+```powershell
+cd frontend
+$env:MEDIAFLOW_BACKEND_URL='http://127.0.0.1:8180'
+npm run dev -- --port 5180
+```
+
+浏览器验收设置 `$env:PLAYWRIGHT_BASE_URL='http://127.0.0.1:5180'` 后运行 `npm run test:e2e`。HTTP 验收在根目录设置 `$env:MEDIAFLOW_API='http://127.0.0.1:8180'` 后运行 `python scripts/smoke-test.py`。这些值只控制本地目标地址，不包含凭据；省略时仍使用 8080 / 5173。

@@ -6,6 +6,7 @@ import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.*;
 import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.security.access.AccessDeniedException;
+import org.springframework.web.ErrorResponse;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.method.annotation.HandlerMethodValidationException;
@@ -61,6 +62,22 @@ public class GlobalExceptionHandler {
 
   @ExceptionHandler(Exception.class)
   ResponseEntity<ApiResponse<Void>> unexpected(Exception e) {
+    if (e instanceof ErrorResponse frameworkError) {
+      var status = frameworkError.getStatusCode();
+      String message =
+          switch (status.value()) {
+            case 400 -> "请求参数不合法";
+            case 404 -> "资源不存在";
+            case 405 -> "不支持的请求方法";
+            case 406 -> "不支持的响应格式";
+            case 415 -> "不支持的请求内容类型";
+            default -> status.is5xxServerError() ? "服务器内部错误" : "请求无法处理";
+          };
+      return ResponseEntity.status(status)
+          .headers(frameworkError.getHeaders())
+          .contentType(MediaType.APPLICATION_JSON)
+          .body(ApiResponse.error(status.value() * 100, message));
+    }
     log.error("Unhandled server error: {}", e.getClass().getName());
     return error(HttpStatus.INTERNAL_SERVER_ERROR, "服务器内部错误");
   }
