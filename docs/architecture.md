@@ -3,7 +3,7 @@
 ## 范围与边界
 
 采用前后端分离单体：Vue SPA → 同源 `/api` → Spring MVC → Service → Mapper → MySQL。
-Stage 1 提供账号与认证；Stage 2 提供媒体业务与内部存储实现。不存在独立文件库和剪辑任务模块。
+Stage 1 提供账号与认证；Stage 2 提供媒体业务与内部存储实现。Stage 3 提供剪辑任务模块；不存在独立文件库。
 
 后端包职责：controller 负责 HTTP 与 DTO 校验；service 承担业务规则与事务；mapper 使用 MyBatis-Plus / 参数化 SQL；entity 映射表；vo 显式限定响应字段；common 统一响应与异常；security 处理 JWT 与当前身份；config 配置框架；storage 预留统一文件存储接口。
 
@@ -46,4 +46,14 @@ MediaController → MediaService → MediaAssetMapper / MediaFileMapper / MediaC
 
 前端移除 Element Plus 全量安装，使用 unplugin-vue-components + ElementPlusResolver 自动按需导入组件和 CSS；程序调用的 Message / MessageBox / Loading 样式显式保留，根组件使用中文 ElConfigProvider。页面继续路由懒加载。
 
-Stage 2 暂时允许所有已登录角色读取 ACTIVE 素材；EDITOR 写入另加所有权条件，REVIEWER 没有写入权限，ARCHIVED 仅 ADMIN 可读。此策略不是最终任务级隔离。
+Stage 2 的共享可读现映射为 LIBRARY，Stage 3 新增 RESTRICTED 与任务上下文授权；EDITOR 写入仍加所有权条件，REVIEWER 没有媒体写入权限，ARCHIVED 仅 ADMIN 可读。现行授权矩阵见 task-authorization.md。
+
+## Stage 3 任务与授权
+
+EditingTaskController → EditingTaskService → EditingTaskMapper / EditingTaskLogMapper。任务含一个当前执行人、一个当前审核人、优先级、可空截止时间、状态和 version；多对多关系复用 media_asset，不复制文件。替换分配直接改变当前列，历史由只追加日志保留，无须引入额外中间件。
+
+AuthorizationService 负责对象级任务 / 媒体判断；AccessContext 只由当前认证身份构造。AuthorizationMapper.xml 的 SQL 片段提供同一角色 / 当前分配判断，任务列表在 SQL 限制行范围；媒体列表、统计、审计用共享 assetRead 片段。EXISTS 关联查询不会因为多角色或多个任务产生重复行。
+
+任务调整和状态动作持有行锁、校验客户端 version，再以旧 version 作为 UPDATE 条件。业务写入与日志同一事务，日志失败使业务回滚。并发同版本请求只允许一次成功。已完成任务不可管理编辑或重开，管理员代办不能越过状态机。
+
+浏览器任务素材链接携带 taskId；预览凭据绑定 task / asset，过滤器验证其用途和上下文，Service 每次重新查询当前授权。正常媒体入口仍遵守基础范围与任务授权的并集；任务入口必须额外通过指定任务授权。旧 Stage 2 实例已在本轮联调中由新后端替换，避免测试入口仍运行旧授权实现。

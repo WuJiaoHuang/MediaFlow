@@ -35,6 +35,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
       throws ServletException, IOException {
     String h = req.getHeader("Authorization");
     Long previewAsset = null;
+    Long previewTask = null;
     String previewToken = null;
     if (h == null && (req.getMethod().equals("GET") || req.getMethod().equals("HEAD"))) {
       var match =
@@ -43,12 +44,20 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
       if (match.matches()) {
         try {
           previewAsset = Long.valueOf(match.group(1));
+          if (req.getParameter("taskId") != null)
+            previewTask = Long.valueOf(req.getParameter("taskId"));
         } catch (NumberFormatException ignored) {
-          // An invalid path must remain unauthenticated, not fail with a server error.
+          previewAsset = null;
+          // An invalid path/context remains unauthenticated.
         }
         if (previewAsset != null && req.getCookies() != null)
           for (var cookie : req.getCookies())
-            if (cookie.getName().equals("mf_preview_" + previewAsset))
+            if (cookie
+                .getName()
+                .equals(
+                    "mf_preview_"
+                        + previewAsset
+                        + (previewTask == null ? "" : "_task_" + previewTask)))
               previewToken = cookie.getValue();
       }
     }
@@ -56,7 +65,9 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
       try {
         if (h != null && !h.startsWith("Bearer ")) throw new IllegalArgumentException();
         Long id =
-            h != null ? jwt.verify(h.substring(7)) : jwt.verifyPreview(previewToken, previewAsset);
+            h != null
+                ? jwt.verify(h.substring(7))
+                : jwt.verifyPreview(previewToken, previewAsset, previewTask);
         var user = users.view(id);
         if (user.status() != 1) throw new IllegalArgumentException();
         var auth =

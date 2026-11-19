@@ -56,6 +56,10 @@ public class JwtService {
   }
 
   public String issuePreview(Long userId, Long assetId) {
+    return issuePreview(userId, assetId, null);
+  }
+
+  public String issuePreview(Long userId, Long assetId, Long taskId) {
     var now = Instant.now();
     return encoder
         .encode(
@@ -68,16 +72,28 @@ public class JwtService {
                     .expiresAt(now.plusSeconds(120))
                     .claim("purpose", "preview")
                     .claim("asset", assetId)
+                    .claims(
+                        values -> {
+                          if (taskId != null) values.put("task", taskId);
+                        })
                     .build()))
         .getTokenValue();
   }
 
   public Long verifyPreview(String token, Long assetId) {
+    return verifyPreview(token, assetId, null);
+  }
+
+  public Long verifyPreview(String token, Long assetId, Long taskId) {
     var jwt = decoder.decode(token);
     if (jwt.getExpiresAt() == null
         || !"preview".equals(jwt.getClaimAsString("purpose"))
         || !assetId.toString().equals(String.valueOf((Object) jwt.getClaim("asset"))))
       throw new IllegalArgumentException("Invalid preview scope");
+    Object bound = jwt.getClaim("task");
+    if (!java.util.Objects.equals(
+        taskId == null ? null : taskId.toString(), bound == null ? null : bound.toString()))
+      throw new IllegalArgumentException("Invalid task context");
     return Long.valueOf(jwt.getSubject());
   }
 

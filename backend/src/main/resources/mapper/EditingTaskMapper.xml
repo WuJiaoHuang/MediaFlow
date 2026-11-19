@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.mediaflow.mapper.EditingTaskMapper">
+ <sql id="fields">t.id,t.title,t.description,t.created_by,c.display_name AS creator_name,t.assignee_id,e.display_name AS assignee_name,t.reviewer_id,r.display_name AS reviewer_name,t.priority,t.due_at,t.status,t.created_at,t.updated_at,t.version</sql>
+ <sql id="joins">FROM editing_task t JOIN sys_user c ON t.created_by=c.id JOIN sys_user e ON t.assignee_id=e.id JOIN sys_user r ON t.reviewer_id=r.id</sql>
+ <select id="detail" resultType="com.mediaflow.vo.TaskView">SELECT <include refid="fields"/><include refid="joins"/> WHERE t.id=#{id}</select>
+ <select id="search" resultType="com.mediaflow.vo.TaskView">SELECT <include refid="fields"/><include refid="joins"/>
+ <where>AND <include refid="com.mediaflow.mapper.AuthorizationMapper.taskRead"/>
+ <if test="q.mine">AND (t.assignee_id=#{auth.userId} OR t.reviewer_id=#{auth.userId})</if>
+ <if test="q.keyword != null and q.keyword != ''">AND t.title LIKE CONCAT('%',#{q.keyword},'%')</if>
+ <if test="q.status != null">AND t.status=#{q.status}</if><if test="q.priority != null">AND t.priority=#{q.priority}</if>
+ <if test="q.assigneeId != null">AND t.assignee_id=#{q.assigneeId}</if><if test="q.reviewerId != null">AND t.reviewer_id=#{q.reviewerId}</if>
+ </where> ORDER BY <choose><when test="q.sort == 'dueAt'">t.due_at</when><when test="q.sort == 'priority'">CASE t.priority WHEN 'LOW' THEN 1 WHEN 'NORMAL' THEN 2 WHEN 'HIGH' THEN 3 ELSE 4 END</when><otherwise>t.created_at</otherwise></choose>
+ <choose><when test="q.direction == 'asc'"> ASC </when><otherwise> DESC </otherwise></choose>,t.id DESC
+ </select>
+</mapper>

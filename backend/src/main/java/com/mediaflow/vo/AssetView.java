@@ -3,6 +3,7 @@ package com.mediaflow.vo;
 import java.time.LocalDateTime;
 
 public class AssetView {
+  public String accessScope;
   public Long id;
   public String title;
   public String description;

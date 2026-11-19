@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.mediaflow.mapper.AuthorizationMapper">
+ <sql id="taskRead">(#{auth.admin}=TRUE OR (#{auth.editor}=TRUE AND t.assignee_id=#{auth.userId}) OR (#{auth.reviewer}=TRUE AND t.reviewer_id=#{auth.userId}))</sql>
+ <sql id="assetRead">(#{auth.admin}=TRUE OR (a.status='ACTIVE' AND (a.access_scope='LIBRARY' OR a.created_by=#{auth.userId} OR EXISTS(SELECT 1 FROM editing_task t JOIN editing_task_asset ta ON ta.task_id=t.id WHERE ta.asset_id=a.id AND <include refid="com.mediaflow.mapper.AuthorizationMapper.taskRead"/>))))</sql>
+</mapper>

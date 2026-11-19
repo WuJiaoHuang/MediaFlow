@@ -8,6 +8,16 @@ public class MediaAsset {
   @TableId(type = IdType.AUTO)
   private Long id;
 
+  private String accessScope;
+
+  public String getAccessScope() {
+    return accessScope;
+  }
+
+  public void setAccessScope(String value) {
+    accessScope = value;
+  }
+
   private String title;
   private String description;
   private Long fileId;

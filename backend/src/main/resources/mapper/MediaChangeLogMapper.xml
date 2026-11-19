@@ -2,6 +2,6 @@
 <!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
 <mapper namespace="com.mediaflow.mapper.MediaChangeLogMapper"><select id="search" resultType="com.mediaflow.entity.MediaChangeLog">
  SELECT l.* FROM media_change_log l JOIN media_asset a ON a.id=l.asset_id <where>
- <if test="!admin">AND a.status='ACTIVE'</if><if test="q.assetId != null">AND l.asset_id=#{q.assetId}</if>
+ <include refid="com.mediaflow.mapper.AuthorizationMapper.assetRead"/><if test="q.assetId != null">AND l.asset_id=#{q.assetId}</if>
  <if test="q.operatorId != null">AND l.operator_id=#{q.operatorId}</if><if test="q.from != null">AND l.created_at &gt;= #{q.from}</if><if test="q.to != null">AND l.created_at &lt;= #{q.to}</if>
  </where> ORDER BY l.created_at DESC,l.id DESC</select></mapper>

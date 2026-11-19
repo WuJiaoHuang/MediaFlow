@@ -7,7 +7,7 @@ spring:
   sql:
     init:
       mode: always
-      schema-locations: classpath:test-schema.sql,classpath:media-schema.sql
+      schema-locations: classpath:test-schema.sql,classpath:media-schema.sql,classpath:task-schema.sql
 mediaflow:
   jwt-secret: test-only-random-looking-secret-not-for-deployment-0123456789
   token-ttl-seconds: 1800

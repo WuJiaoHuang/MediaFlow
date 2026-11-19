@@ -54,6 +54,15 @@ public class SecurityConfig {
                     .hasAnyRole("ADMIN", "EDITOR")
                     .requestMatchers(org.springframework.http.HttpMethod.PUT, "/api/media/assets/*")
                     .hasAnyRole("ADMIN", "EDITOR")
+                    .requestMatchers(org.springframework.http.HttpMethod.POST, "/api/tasks")
+                    .hasRole("ADMIN")
+                    .requestMatchers(
+                        org.springframework.http.HttpMethod.PUT,
+                        "/api/tasks/*",
+                        "/api/media/assets/*/scope")
+                    .hasRole("ADMIN")
+                    .requestMatchers(org.springframework.http.HttpMethod.GET, "/api/tasks/people")
+                    .hasRole("ADMIN")
                     .requestMatchers("/api/admin/**")
                     .hasRole("ADMIN")
                     .anyRequest()

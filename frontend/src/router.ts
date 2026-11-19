@@ -14,6 +14,28 @@ export const router = createRouter({
       component: () => import("./views/LayoutView.vue"),
       children: [
         {
+          path: "tasks",
+          name: "tasks",
+          component: () => import("./views/TaskListView.vue"),
+        },
+        {
+          path: "tasks/new",
+          name: "task-new",
+          component: () => import("./views/TaskFormView.vue"),
+          meta: { admin: true },
+        },
+        {
+          path: "tasks/:id(\\d+)/edit",
+          name: "task-edit",
+          component: () => import("./views/TaskFormView.vue"),
+          meta: { admin: true },
+        },
+        {
+          path: "tasks/:id(\\d+)",
+          name: "task-detail",
+          component: () => import("./views/TaskDetailView.vue"),
+        },
+        {
           path: "media",
           name: "media",
           component: () => import("./views/MediaListView.vue"),

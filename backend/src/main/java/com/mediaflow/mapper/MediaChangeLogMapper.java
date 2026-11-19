@@ -9,5 +9,7 @@ import org.apache.ibatis.annotations.Param;
 
 public interface MediaChangeLogMapper extends BaseMapper<MediaChangeLog> {
   IPage<MediaChangeLog> search(
-      Page<MediaChangeLog> page, @Param("q") AuditQuery query, @Param("admin") boolean admin);
+      Page<MediaChangeLog> page,
+      @Param("q") AuditQuery query,
+      @Param("auth") com.mediaflow.security.AccessContext auth);
 }

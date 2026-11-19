@@ -18,6 +18,9 @@ import type { ApiResponse, Page } from "../types";
 import ChangeTable from "../components/ChangeTable.vue";
 const route = useRoute();
 const id = Number(route.params.id);
+const taskId = route.query.taskId ? Number(route.query.taskId) : undefined;
+const scopeDialog = ref(false);
+const nextScope = ref("LIBRARY");
 const auth = useAuthStore();
 const asset = ref<Asset | null>(null);
 const error = ref(false);
@@ -49,7 +52,7 @@ async function renew() {
   try {
     const response = await api.post<
       ApiResponse<{ contentUrl: string; downloadUrl: string }>
-    >(`/media/assets/${id}/access`);
+    >(`/media/assets/${id}/access`, null, { params: { taskId } });
     access.value = response.data.data;
     previewError.value = false;
   } catch {
@@ -75,7 +78,7 @@ async function load() {
   loading.value = true;
   error.value = false;
   try {
-    asset.value = await getData<Asset>(`/media/assets/${id}`);
+    asset.value = await getData<Asset>(`/media/assets/${id}`, { taskId });
     await renew();
     await loadHistory();
   } catch {
@@ -84,6 +87,18 @@ async function load() {
   } finally {
     loading.value = false;
   }
+}
+async function saveScope() {
+  if (!asset.value) return;
+  try {
+    await api.put(`/media/assets/${id}/scope`, {
+      accessScope: nextScope.value,
+      version: asset.value.version,
+    });
+    scopeDialog.value = false;
+    ElMessage.success("访问范围已更新");
+    await load();
+  } catch {}
 }
 async function openEdit() {
   if (!asset.value) return;
@@ -173,6 +188,23 @@ onUnmounted(() => {
           >
         </div>
       </div>
+      <div class="task-context-note">
+        <el-tag
+          :type="asset.accessScope === 'RESTRICTED' ? 'warning' : 'info'"
+          >{{
+            asset.accessScope === "RESTRICTED" ? "受限素材" : "共享素材"
+          }}</el-tag
+        ><span v-if="taskId" class="muted">任务 #{{ taskId }} 上下文</span
+        ><el-button
+          v-if="auth.isAdmin"
+          size="small"
+          @click="
+            nextScope = asset!.accessScope;
+            scopeDialog = true;
+          "
+          >设置访问范围</el-button
+        >
+      </div>
       <section class="surface media-preview">
         <el-alert
           v-if="previewError"
@@ -242,6 +274,24 @@ onUnmounted(() => {
           @current-change="loadHistory"
         />
       </section>
+      <el-dialog
+        v-model="scopeDialog"
+        title="素材访问范围"
+        width="min(520px,94vw)"
+        ><p class="muted">
+          共享：登录用户可读。受限：仅
+          ADMIN、上传者及当前有任务授权的用户可读。此修改将记录在素材审计中。
+        </p>
+        <el-radio-group v-model="nextScope"
+          ><el-radio value="LIBRARY">共享</el-radio
+          ><el-radio value="RESTRICTED">受限</el-radio></el-radio-group
+        ><template #footer
+          ><el-button @click="scopeDialog = false">取消</el-button
+          ><el-button type="primary" @click="saveScope"
+            >保存访问范围</el-button
+          ></template
+        ></el-dialog
+      >
       <el-dialog v-model="edit" title="编辑素材" width="min(520px,94vw)"
         ><el-form label-position="top"
           ><el-form-item label="素材名称" required

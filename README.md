@@ -1,7 +1,7 @@
 # MediaFlow
 
 企业内部媒体资产与剪辑协作管理系统。Stage 1 完成认证与账号权限；Stage 2 新增媒体库、分类、真实统计、字段级修改记录以及受控预览下载。
-系统没有独立文件库，不包含剪辑任务、协同反馈、转码或 AI 业务。
+Stage 3 提供剪辑任务、分配、审核状态流转及任务级授权。系统没有独立文件库，不包含 Stage 4 协同反馈、转码或 AI 业务。
 
 ## 技术栈与环境
 
@@ -39,6 +39,7 @@ mysql -u root -p --default-character-set=utf8mb4
 source sql/schema.sql;
 source sql/data.sql;
 source sql/migrations/V002__media_management.sql;
+source sql/migrations/V003__editing_tasks.sql;
 ```
 
 `schema.sql` 的 IF NOT EXISTS 用于重复初始化，不承担后续版本迁移；未来结构变化需单独迁移脚本。`data.sql` 不覆盖已有用户密码、状态或已有角色；不要在生产环境导入开发测试数据。
@@ -131,7 +132,7 @@ python scripts/smoke-test.py
 
 已存在 Stage 1 数据库时，仅运行 `sql/migrations/V002__media_management.sql` 升级，不重建数据库或用户表。迁移可重复执行，但不负责修正手工改变的已有表结构。
 
-正常素材暂对所有已登录用户可读。ADMIN 上传、编辑全部素材、管理分类及归档；EDITOR 上传并只编辑本人素材；REVIEWER 只读。归档仅 ADMIN 可读。任务级数据隔离尚未实现。
+Stage 2 的共享素材策略保留为 LIBRARY。Stage 3 新增 RESTRICTED：仅 ADMIN、上传者及当前有任务授权的用户可读。ADMIN 管理所有素材；EDITOR 仍只能编辑本人素材；REVIEWER 只读。归档仅 ADMIN 可读。任务上下文必须额外校验当前分配与素材关联，不能用共享策略绕过。
 
 上传通过内容检测、MIME 和扩展名一致性检查；支持 JPEG / PNG / WebP、MP3 / WAV / M4A、MP4 / WebM，默认单文件 100 MB。STORAGE_ROOT 指定本地存储根目录，默认相对后端运行目录的 uploads。不得将它配置为反向代理静态目录。文件流经受控接口访问，不能通过 storage_key 直接读取。
 
@@ -148,7 +149,7 @@ HTTP 媒体边界验收：根目录运行 `python scripts/media-smoke-test.py`�
 ## 后续阶段
 
 - Stage 2 已完成媒体素材管理，后续按真实使用情况优化。
-- Stage 3：剪辑任务创建、分配及按参与者限制数据访问。
+- Stage 3 已完成剪辑任务、分配、审核状态流转与共享 / 受限媒体授权。
 - Stage 4：文字 / 语音 / 视频协作反馈与审核授权。
 - Stage 5：扩展到跨业务审计、更多统计指标与生产运维加固。
 
@@ -165,3 +166,19 @@ npm run dev -- --port 5180
 ```
 
 浏览器验收设置 `$env:PLAYWRIGHT_BASE_URL='http://127.0.0.1:5180'` 后运行 `npm run test:e2e`。HTTP 验收在根目录设置 `$env:MEDIAFLOW_API='http://127.0.0.1:8180'` 后运行 `python scripts/smoke-test.py`。这些值只控制本地目标地址，不包含凭据；省略时仍使用 8080 / 5173。
+
+## Stage 3 剪辑任务
+
+对已有 Stage 2 数据库，只运行 `sql/migrations/V003__editing_tasks.sql`，不要重建库或重跑种子。迁移新增 editing_task / editing_task_asset / editing_task_log，以及 media_asset.access_scope（默认 LIBRARY，保留旧素材共享行为）。
+
+任务入口 `/tasks`；ADMIN 可创建、编辑非已完成任务、选择已有素材和有效执行人 / 审核人。列表可按状态、优先级、执行人、审核人筛选并分页排序，ADMIN 可切换全部 / 我的任务。任务详情支持开始、提交审核、审核通过 / 带原因退回，以及素材预览下载与不可篡改的操作历史。
+
+状态只允许 PENDING → PROCESSING → REVIEWING → COMPLETED，或 REVIEWING → PROCESSING；COMPLETED 不再编辑或重开。当前 EDITOR 执行人可开始 / 提交，当前 REVIEWER 审核人可通过 / 退回；ADMIN 可按同一状态规则代办。所有变更提交 version，并由数据库事务、行锁和版本条件更新保护。
+
+共享素材并不自动变成私有。ADMIN 在媒体详情“设置访问范围”显式切换受限，操作记入媒体审计。受限素材可读范围为 ADMIN / 上传者 / 当前有效任务参与者；媒体列表、详情、统计、审计、文件和续签统一使用此授权。任务预览凭据还绑定 taskId，改派后旧 task Cookie 即使尚未过期也会被拒绝。其他独立基础授权不会因为某个任务被撤销而被误删。完整矩阵见 [任务授权](docs/task-authorization.md)。
+
+新增 API：GET/POST `/api/tasks`，GET/PUT `/api/tasks/{id}`，GET `/api/tasks/{id}/assets`、`/logs`，POST `/api/tasks/{id}/start|submit|approve|reject`，GET `/api/tasks/people`（ADMIN）。ADMIN 的素材范围接口为 PUT `/api/media/assets/{id}/scope`。媒体详情、预览续签和文件支持可选 taskId，并校验上下文授权。
+
+验收：`mvn -f backend/pom.xml clean verify`；前端 `npm run typecheck`、`npm run build`、`npm run test:e2e`（包含旧用例与任务多角色流程）。真实 HTTP/MySQL 验收运行 `python scripts/task-smoke-test.py`；该脚本仅供本机开发环境，可通过 MEDIAFLOW_ADMIN / EDITOR / REVIEWER 的 `_USERNAME` / `_PASSWORD` 变量覆盖登录凭据，省略时读取本文明确标记的开发种子账号。新建测试账号的密码运行时随机生成，不写入源码或输出。
+
+自定义服务端口时设置 MEDIAFLOW_API；自定义文件目录时将同一绝对路径设置为 MEDIAFLOW_STORAGE_ROOT。全部测试只清理本次返回的临时任务、素材和用户 ID，不清空已有数据库。[Stage 3 详细报告](docs/stage3-report.md)。

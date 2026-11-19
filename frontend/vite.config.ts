@@ -39,6 +39,7 @@ export default defineConfig({
       "element-plus/es/components/pagination/style/css",
       "element-plus/es/components/progress/style/css",
       "element-plus/es/components/radio/style/css",
+      "element-plus/es/components/radio-button/style/css",
       "element-plus/es/components/radio-group/style/css",
       "element-plus/es/components/select/style/css",
       "element-plus/es/components/table/style/css",

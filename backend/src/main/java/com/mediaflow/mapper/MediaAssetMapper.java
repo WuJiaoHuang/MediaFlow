@@ -14,11 +14,24 @@ public interface MediaAssetMapper extends BaseMapper<MediaAsset> {
   @Select("SELECT * FROM media_asset WHERE id=#{id} FOR UPDATE")
   MediaAsset lockById(Long id);
 
-  IPage<AssetView> search(Page<AssetView> page, @Param("q") MediaQuery query);
+  IPage<AssetView> search(
+      Page<AssetView> page,
+      @Param("q") MediaQuery query,
+      @Param("auth") com.mediaflow.security.AccessContext auth);
 
   AssetView detail(Long id);
 
-  MediaStats stats(@Param("q") MediaQuery query, @Param("recentSince") LocalDateTime recentSince);
+  long readableCount(
+      @Param("id") Long id, @Param("auth") com.mediaflow.security.AccessContext auth);
 
-  List<MediaStats.CategoryCount> categoryCounts(@Param("q") MediaQuery query);
+  List<AssetView> taskAssets(
+      @Param("id") Long id, @Param("auth") com.mediaflow.security.AccessContext auth);
+
+  MediaStats stats(
+      @Param("q") MediaQuery query,
+      @Param("recentSince") LocalDateTime recentSince,
+      @Param("auth") com.mediaflow.security.AccessContext auth);
+
+  List<MediaStats.CategoryCount> categoryCounts(
+      @Param("q") MediaQuery query, @Param("auth") com.mediaflow.security.AccessContext auth);
 }

@@ -68,3 +68,15 @@ erDiagram
 当前 media_asset 使用可空 category_id；MyBatis 更新该字段与分类 parent_id 时显式允许写 NULL，避免“取消分类”被框架默认的忽略空值策略吞掉。version 由锁定更新显式增加。
 
 上述旧规划中的 media_version、task_*、collaboration_feedback、modification_audit 仍是后续范围。当前使用 media_change_log 落地媒体字段审计，不新增通用审计表或任务权限表。
+
+## Stage 3 已落地任务模型
+
+迁移 V003__editing_tasks.sql 新增 editing_task、editing_task_asset、editing_task_log，不重建 Stage 1/2 表。media_asset 仅增加 access_scope VARCHAR(12) NOT NULL DEFAULT LIBRARY；通过 information_schema 判断列是否已存在，安全重复执行迁移。旧行保留且默认共享。
+
+editing_task：BIGINT id；title(200)、description(4000)；created_by / assignee_id / reviewer_id 用户 RESTRICT 外键；priority LOW/NORMAL/HIGH/URGENT；due_at 可空；status 四态 CHECK；created_at / updated_at、version。索引覆盖 assignee/status/created/id、reviewer/status/created/id、status/priority/created/id 与 due_at/id。
+
+editing_task_asset：id、task_id / asset_id RESTRICT 外键，(task_id,asset_id) 唯一，反向 (asset_id,task_id) 索引。当前关联可由 ADMIN 在非已完成任务中调整，旧关联 ID 记录在 ASSETS_CHANGED 日志中；不复制或删除 media_file。
+
+editing_task_log：id、task_id / operator_id RESTRICT 外键、operator_name 快照、operation_type、field_name、old_value / new_value TEXT、reason(2000)、created_at；按 task/time/id 和 operator/time 索引。任务创建、字段调整、状态动作均写入，不提供日志修改 / 删除 API。
+
+原先规划的 edit_task / task_assignment / review_authorization 在本阶段合并为 editing_task 的单执行人 / 单审核人字段，匹配当前明确需求；历史分配变更由日志保留。Stage 4 如有多人审核等新需求再以独立迁移演进，不提前创建协同反馈表。

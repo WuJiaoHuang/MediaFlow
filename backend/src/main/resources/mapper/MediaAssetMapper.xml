@@ -2,8 +2,8 @@
 <!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
 <mapper namespace="com.mediaflow.mapper.MediaAssetMapper">
  <sql id="joins"> FROM media_asset a JOIN media_file f ON a.file_id=f.id JOIN sys_user u ON a.created_by=u.id LEFT JOIN media_category c ON a.category_id=c.id </sql>
- <sql id="fields">a.id,a.title,a.description,a.category_id,c.category_name,a.media_type,a.created_by,u.display_name AS uploader_name,a.updated_by,a.created_at,a.updated_at,a.status,a.version,f.original_filename,f.mime_type,f.file_size</sql>
- <sql id="filters"><where>
+ <sql id="fields">a.access_scope,a.id,a.title,a.description,a.category_id,c.category_name,a.media_type,a.created_by,u.display_name AS uploader_name,a.updated_by,a.created_at,a.updated_at,a.status,a.version,f.original_filename,f.mime_type,f.file_size</sql>
+ <sql id="filters"><where>AND <include refid="com.mediaflow.mapper.AuthorizationMapper.assetRead"/>
  <if test="q.status != 'ALL'">AND a.status=#{q.status}</if>
  <if test="q.keyword != null and q.keyword != ''">AND a.title LIKE CONCAT('%',#{q.keyword},'%')</if>
  <if test="q.categoryId != null"><choose><when test="q.categoryId == 0">AND a.category_id IS NULL</when><otherwise>AND a.category_id=#{q.categoryId}</otherwise></choose></if>
@@ -22,4 +22,6 @@
  <include refid="joins"/><include refid="filters"/></select>
  <select id="categoryCounts" resultType="com.mediaflow.vo.MediaStats$CategoryCount">SELECT a.category_id,COALESCE(c.category_name,'未分类') AS category_name,COUNT(*) AS count
  <include refid="joins"/><include refid="filters"/> GROUP BY a.category_id,c.category_name ORDER BY a.category_id</select>
+<select id="readableCount" resultType="long">SELECT COUNT(*) FROM media_asset a WHERE a.id=#{id} AND <include refid="com.mediaflow.mapper.AuthorizationMapper.assetRead"/></select>
+ <select id="taskAssets" resultType="com.mediaflow.vo.AssetView">SELECT <include refid="fields"/><include refid="joins"/> WHERE EXISTS(SELECT 1 FROM editing_task_asset ta WHERE ta.asset_id=a.id AND ta.task_id=#{id}) AND (#{auth.admin}=TRUE OR a.status='ACTIVE') ORDER BY a.id</select>
 </mapper>

@@ -10,6 +10,7 @@ export interface Category {
   updatedAt: string;
 }
 export interface Asset {
+  accessScope: string;
   id: number;
   title: string;
   description: string;
@@ -76,6 +77,7 @@ export const fieldNames: Record<string, string> = {
   category_id: "分类",
   status: "状态",
   file_id: "原始文件",
+  access_scope: "访问范围",
 };
 export const operationNames: Record<string, string> = {
   CREATE: "创建",

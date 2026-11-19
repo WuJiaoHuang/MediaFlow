@@ -39,8 +39,10 @@ public class MediaController {
 
   @GetMapping("/assets/{id}")
   public ApiResponse<AssetView> detail(
-      @PathVariable Long id, @AuthenticationPrincipal CurrentUser actor) {
-    return ApiResponse.ok(service.detail(id, actor));
+      @PathVariable Long id,
+      @RequestParam(required = false) Long taskId,
+      @AuthenticationPrincipal CurrentUser actor) {
+    return ApiResponse.ok(service.detail(id, actor, taskId));
   }
 
   @GetMapping("/stats")
@@ -85,17 +87,29 @@ public class MediaController {
     return ApiResponse.ok(service.history(query, actor));
   }
 
+  @PutMapping("/assets/{id}/scope")
+  @PreAuthorize("hasRole('ADMIN')")
+  public ApiResponse<AssetView> scope(
+      @PathVariable Long id,
+      @Valid @RequestBody AssetScopeRequest req,
+      @AuthenticationPrincipal CurrentUser actor) {
+    return ApiResponse.ok(service.scope(id, actor, req));
+  }
+
   public record MediaAccess(String contentUrl, String downloadUrl, int expiresIn) {}
 
   @PostMapping("/assets/{id}/access")
   public ResponseEntity<ApiResponse<MediaAccess>> access(
       @PathVariable Long id,
       @AuthenticationPrincipal CurrentUser actor,
-      jakarta.servlet.http.HttpServletRequest req) {
-    service.readable(id, actor);
+      jakarta.servlet.http.HttpServletRequest req,
+      @RequestParam(required = false) Long taskId) {
+    service.readable(id, actor, taskId);
     String path = "/api/media/assets/" + id;
     var cookie =
-        ResponseCookie.from("mf_preview_" + id, jwt.issuePreview(actor.user().id(), id))
+        ResponseCookie.from(
+                "mf_preview_" + id + (taskId == null ? "" : "_task_" + taskId),
+                jwt.issuePreview(actor.user().id(), id, taskId))
             .httpOnly(true)
             .secure(req.isSecure())
             .sameSite("Strict")
@@ -105,16 +119,22 @@ public class MediaController {
     return ResponseEntity.ok()
         .header(HttpHeaders.SET_COOKIE, cookie.toString())
         .header(HttpHeaders.CACHE_CONTROL, "no-store")
-        .body(ApiResponse.ok(new MediaAccess(path + "/content", path + "/download", 120)));
+        .body(
+            ApiResponse.ok(
+                new MediaAccess(
+                    path + "/content" + (taskId == null ? "" : "?taskId=" + taskId),
+                    path + "/download" + (taskId == null ? "" : "?taskId=" + taskId),
+                    120)));
   }
 
   @GetMapping({"/assets/{id}/content", "/assets/{id}/download"})
   public ResponseEntity<Resource> content(
       @PathVariable Long id,
       @AuthenticationPrincipal CurrentUser actor,
-      jakarta.servlet.http.HttpServletRequest req)
+      jakarta.servlet.http.HttpServletRequest req,
+      @RequestParam(required = false) Long taskId)
       throws IOException {
-    var f = service.physical(id, actor);
+    var f = service.physical(id, actor, taskId);
     var resource = storage.resource(f.getStorageKey());
     boolean download = req.getRequestURI().endsWith("/download");
     return ResponseEntity.ok()

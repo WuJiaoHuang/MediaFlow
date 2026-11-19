@@ -26,6 +26,7 @@ public class MediaService {
   private final CategoryService categories;
   private final FileStorage storage;
   private final MediaTypeValidator validator;
+  private final AuthorizationService authorization;
 
   public MediaService(
       MediaAssetMapper assets,
@@ -33,13 +34,15 @@ public class MediaService {
       MediaChangeLogMapper logs,
       CategoryService categories,
       FileStorage storage,
-      MediaTypeValidator validator) {
+      MediaTypeValidator validator,
+      AuthorizationService authorization) {
     this.assets = assets;
     this.files = files;
     this.logs = logs;
     this.categories = categories;
     this.storage = storage;
     this.validator = validator;
+    this.authorization = authorization;
   }
 
   public boolean admin(CurrentUser actor) {
@@ -56,11 +59,16 @@ public class MediaService {
   }
 
   public MediaAsset readable(Long id, CurrentUser actor) {
-    var a = assets.selectById(id);
-    if (a == null) throw new BusinessException(HttpStatus.NOT_FOUND, "素材不存在");
-    if (!admin(actor) && !a.getStatus().equals("ACTIVE"))
-      throw new BusinessException(HttpStatus.FORBIDDEN, "归档素材仅管理员可访问");
-    return a;
+    return authorization.asset(id, actor, null);
+  }
+
+  public MediaAsset readable(Long id, CurrentUser actor, Long taskId) {
+    return authorization.asset(id, actor, taskId);
+  }
+
+  public AssetView detail(Long id, CurrentUser actor, Long taskId) {
+    readable(id, actor, taskId);
+    return assets.detail(id);
   }
 
   public AssetView detail(Long id, CurrentUser actor) {
@@ -81,15 +89,21 @@ public class MediaService {
 
   public PageView<AssetView> list(MediaQuery q, CurrentUser actor) {
     queryPolicy(q, actor);
-    var p = assets.search(new Page<>(q.getPage(), q.getSize()), q);
+    var p =
+        assets.search(
+            new Page<>(q.getPage(), q.getSize()),
+            q,
+            com.mediaflow.security.AccessContext.of(actor));
     return new PageView<>(p.getRecords(), p.getTotal(), q.getPage(), q.getSize());
   }
 
   @Transactional(readOnly = true)
   public MediaStats stats(MediaQuery q, CurrentUser actor) {
     queryPolicy(q, actor);
-    var result = assets.stats(q, LocalDateTime.now().minusDays(7));
-    var counts = assets.categoryCounts(q);
+    var result =
+        assets.stats(
+            q, LocalDateTime.now().minusDays(7), com.mediaflow.security.AccessContext.of(actor));
+    var counts = assets.categoryCounts(q, com.mediaflow.security.AccessContext.of(actor));
     var byId = new HashMap<Long, MediaStats.CategoryCount>();
     MediaStats.CategoryCount uncategorized = null;
     for (var c : counts) {
@@ -171,6 +185,7 @@ public class MediaService {
     a.setCreatedAt(now);
     a.setUpdatedAt(now);
     a.setStatus("ACTIVE");
+    a.setAccessScope("LIBRARY");
     a.setVersion(0);
     a.setUploadKey(uploadKey);
     assets.insert(a);
@@ -230,6 +245,7 @@ public class MediaService {
   public AssetView update(Long id, CurrentUser actor, AssetUpdateRequest req) {
     var a = assets.lockById(id);
     if (a == null) throw new BusinessException(HttpStatus.NOT_FOUND, "素材不存在");
+    readable(id, actor);
     writable(actor, a);
     if (!a.getVersion().equals(req.version()))
       throw new BusinessException(HttpStatus.CONFLICT, "素材已被其他人修改，请刷新后重试");
@@ -287,8 +303,31 @@ public class MediaService {
   public PageView<MediaChangeLog> history(AuditQuery q, CurrentUser actor) {
     range(q.from, q.to);
     if (q.assetId != null) readable(q.assetId, actor);
-    var p = logs.search(new Page<>(q.page, q.size), q, admin(actor));
+    var p =
+        logs.search(new Page<>(q.page, q.size), q, com.mediaflow.security.AccessContext.of(actor));
     return new PageView<>(p.getRecords(), p.getTotal(), q.page, q.size);
+  }
+
+  @Transactional
+  public AssetView scope(Long id, CurrentUser actor, AssetScopeRequest req) {
+    authorization.requireAdmin(actor);
+    var a = assets.lockById(id);
+    if (a == null) throw new BusinessException(HttpStatus.NOT_FOUND, "素材不存在");
+    if (!a.getVersion().equals(req.version()))
+      throw new BusinessException(HttpStatus.CONFLICT, "素材版本冲突，请刷新");
+    if (!Objects.equals(a.getAccessScope(), req.accessScope())) {
+      change(a, actor, "UPDATE", "access_scope", a.getAccessScope(), req.accessScope(), null, null);
+      a.setAccessScope(req.accessScope());
+      a.setVersion(a.getVersion() + 1);
+      a.setUpdatedBy(actor.user().id());
+      a.setUpdatedAt(LocalDateTime.now());
+      assets.updateById(a);
+    }
+    return assets.detail(id);
+  }
+
+  public MediaFile physical(Long id, CurrentUser actor, Long taskId) {
+    return files.selectById(readable(id, actor, taskId).getFileId());
   }
 
   public MediaFile physical(Long id, CurrentUser actor) {
