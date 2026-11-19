@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { onMounted, onUnmounted } from "vue";
+import zhCn from "element-plus/es/locale/lang/zh-cn";
 import { useAuthStore } from "./stores/auth";
 import { router } from "./router";
 const auth = useAuthStore();
@@ -14,4 +15,6 @@ onUnmounted(() =>
   window.removeEventListener("mediaflow:unauthorized", onUnauthorized),
 );
 </script>
-<template><router-view /></template>
+<template>
+  <el-config-provider :locale="zhCn"><router-view /></el-config-provider>
+</template>

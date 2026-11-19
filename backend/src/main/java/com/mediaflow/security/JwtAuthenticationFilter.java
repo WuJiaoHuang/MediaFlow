@@ -34,10 +34,29 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
       HttpServletRequest req, HttpServletResponse res, FilterChain chain)
       throws ServletException, IOException {
     String h = req.getHeader("Authorization");
-    if (h != null) {
+    Long previewAsset = null;
+    String previewToken = null;
+    if (h == null && (req.getMethod().equals("GET") || req.getMethod().equals("HEAD"))) {
+      var match =
+          java.util.regex.Pattern.compile("^/api/media/assets/([0-9]+)/(content|download)$")
+              .matcher(req.getServletPath());
+      if (match.matches()) {
+        try {
+          previewAsset = Long.valueOf(match.group(1));
+        } catch (NumberFormatException ignored) {
+          // An invalid path must remain unauthenticated, not fail with a server error.
+        }
+        if (previewAsset != null && req.getCookies() != null)
+          for (var cookie : req.getCookies())
+            if (cookie.getName().equals("mf_preview_" + previewAsset))
+              previewToken = cookie.getValue();
+      }
+    }
+    if (h != null || previewToken != null) {
       try {
-        if (!h.startsWith("Bearer ")) throw new IllegalArgumentException();
-        Long id = jwt.verify(h.substring(7));
+        if (h != null && !h.startsWith("Bearer ")) throw new IllegalArgumentException();
+        Long id =
+            h != null ? jwt.verify(h.substring(7)) : jwt.verifyPreview(previewToken, previewAsset);
         var user = users.view(id);
         if (user.status() != 1) throw new IllegalArgumentException();
         var auth =

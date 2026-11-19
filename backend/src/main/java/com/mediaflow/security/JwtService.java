@@ -51,6 +51,33 @@ public class JwtService {
     var jwt = decoder.decode(token);
     if (jwt.getExpiresAt() == null || jwt.getIssuedAt() == null)
       throw new IllegalArgumentException("Missing timestamps");
+    if (jwt.hasClaim("purpose")) throw new IllegalArgumentException("Not an access token");
+    return Long.valueOf(jwt.getSubject());
+  }
+
+  public String issuePreview(Long userId, Long assetId) {
+    var now = Instant.now();
+    return encoder
+        .encode(
+            JwtEncoderParameters.from(
+                JwsHeader.with(MacAlgorithm.HS256).build(),
+                JwtClaimsSet.builder()
+                    .issuer("mediaflow")
+                    .subject(userId.toString())
+                    .issuedAt(now)
+                    .expiresAt(now.plusSeconds(120))
+                    .claim("purpose", "preview")
+                    .claim("asset", assetId)
+                    .build()))
+        .getTokenValue();
+  }
+
+  public Long verifyPreview(String token, Long assetId) {
+    var jwt = decoder.decode(token);
+    if (jwt.getExpiresAt() == null
+        || !"preview".equals(jwt.getClaimAsString("purpose"))
+        || !assetId.toString().equals(String.valueOf((Object) jwt.getClaim("asset"))))
+      throw new IllegalArgumentException("Invalid preview scope");
     return Long.valueOf(jwt.getSubject());
   }
 

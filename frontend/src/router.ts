@@ -14,6 +14,32 @@ export const router = createRouter({
       component: () => import("./views/LayoutView.vue"),
       children: [
         {
+          path: "media",
+          name: "media",
+          component: () => import("./views/MediaListView.vue"),
+        },
+        {
+          path: "media/stats",
+          name: "media-stats",
+          component: () => import("./views/MediaDashboardView.vue"),
+        },
+        {
+          path: "media/changes",
+          name: "media-changes",
+          component: () => import("./views/MediaChangesView.vue"),
+        },
+        {
+          path: "media/categories",
+          name: "media-categories",
+          component: () => import("./views/CategoriesView.vue"),
+          meta: { admin: true },
+        },
+        {
+          path: "media/:id(\\d+)",
+          name: "media-detail",
+          component: () => import("./views/MediaDetailView.vue"),
+        },
+        {
           path: "",
           name: "home",
           component: () => import("./views/HomeView.vue"),

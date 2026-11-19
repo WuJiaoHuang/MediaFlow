@@ -60,6 +60,16 @@ public class GlobalExceptionHandler {
     return error(HttpStatus.NOT_FOUND, "资源不存在");
   }
 
+  @ExceptionHandler(org.springframework.web.multipart.MaxUploadSizeExceededException.class)
+  ResponseEntity<ApiResponse<Void>> tooLarge(Exception e) {
+    return error(HttpStatus.PAYLOAD_TOO_LARGE, "文件超过上传大小限制");
+  }
+
+  @ExceptionHandler(org.springframework.web.multipart.MultipartException.class)
+  ResponseEntity<ApiResponse<Void>> multipart(Exception e) {
+    return error(HttpStatus.BAD_REQUEST, "上传请求不完整");
+  }
+
   @ExceptionHandler(Exception.class)
   ResponseEntity<ApiResponse<Void>> unexpected(Exception e) {
     if (e instanceof ErrorResponse frameworkError) {

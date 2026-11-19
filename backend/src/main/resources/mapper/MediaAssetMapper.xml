@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.mediaflow.mapper.MediaAssetMapper">
+ <sql id="joins"> FROM media_asset a JOIN media_file f ON a.file_id=f.id JOIN sys_user u ON a.created_by=u.id LEFT JOIN media_category c ON a.category_id=c.id </sql>
+ <sql id="fields">a.id,a.title,a.description,a.category_id,c.category_name,a.media_type,a.created_by,u.display_name AS uploader_name,a.updated_by,a.created_at,a.updated_at,a.status,a.version,f.original_filename,f.mime_type,f.file_size</sql>
+ <sql id="filters"><where>
+ <if test="q.status != 'ALL'">AND a.status=#{q.status}</if>
+ <if test="q.keyword != null and q.keyword != ''">AND a.title LIKE CONCAT('%',#{q.keyword},'%')</if>
+ <if test="q.categoryId != null"><choose><when test="q.categoryId == 0">AND a.category_id IS NULL</when><otherwise>AND a.category_id=#{q.categoryId}</otherwise></choose></if>
+ <if test="q.mediaType != null">AND a.media_type=#{q.mediaType}</if>
+ <if test="q.uploadedBy != null">AND a.created_by=#{q.uploadedBy}</if>
+ <if test="q.from != null">AND a.created_at &gt;= #{q.from}</if>
+ <if test="q.to != null">AND a.created_at &lt;= #{q.to}</if>
+ </where></sql>
+ <select id="search" resultType="com.mediaflow.vo.AssetView">SELECT <include refid="fields"/><include refid="joins"/><include refid="filters"/>
+ ORDER BY <choose><when test="q.sort == 'title'">a.title</when><when test="q.sort == 'fileSize'">f.file_size</when><otherwise>a.created_at</otherwise></choose>
+ <choose><when test="q.direction == 'asc'"> ASC </when><otherwise> DESC </otherwise></choose>,a.id DESC</select>
+ <select id="detail" resultType="com.mediaflow.vo.AssetView">SELECT <include refid="fields"/><include refid="joins"/> WHERE a.id=#{id}</select>
+ <select id="stats" resultType="com.mediaflow.vo.MediaStats">SELECT COUNT(*) AS total,
+ COALESCE(SUM(CASE WHEN a.media_type='VIDEO' THEN 1 ELSE 0 END),0) AS videos,COALESCE(SUM(CASE WHEN a.media_type='AUDIO' THEN 1 ELSE 0 END),0) AS audios,
+ COALESCE(SUM(CASE WHEN a.media_type='IMAGE' THEN 1 ELSE 0 END),0) AS images,COALESCE(SUM(CASE WHEN a.created_at &gt;= #{recentSince} THEN 1 ELSE 0 END),0) AS recent,COALESCE(SUM(f.file_size),0) AS total_bytes
+ <include refid="joins"/><include refid="filters"/></select>
+ <select id="categoryCounts" resultType="com.mediaflow.vo.MediaStats$CategoryCount">SELECT a.category_id,COALESCE(c.category_name,'未分类') AS category_name,COUNT(*) AS count
+ <include refid="joins"/><include refid="filters"/> GROUP BY a.category_id,c.category_name ORDER BY a.category_id</select>
+</mapper>

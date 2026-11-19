@@ -39,6 +39,21 @@ public class SecurityConfig {
                 a.requestMatchers(
                         "/api/auth/login", "/v3/api-docs/**", "/swagger-ui/**", "/swagger-ui.html")
                     .permitAll()
+                    .requestMatchers(
+                        org.springframework.http.HttpMethod.POST,
+                        "/api/media/categories",
+                        "/api/media/assets/*/archive")
+                    .hasRole("ADMIN")
+                    .requestMatchers(
+                        org.springframework.http.HttpMethod.PUT, "/api/media/categories/*")
+                    .hasRole("ADMIN")
+                    .requestMatchers(
+                        org.springframework.http.HttpMethod.DELETE, "/api/media/categories/*")
+                    .hasRole("ADMIN")
+                    .requestMatchers(org.springframework.http.HttpMethod.POST, "/api/media/assets")
+                    .hasAnyRole("ADMIN", "EDITOR")
+                    .requestMatchers(org.springframework.http.HttpMethod.PUT, "/api/media/assets/*")
+                    .hasAnyRole("ADMIN", "EDITOR")
                     .requestMatchers("/api/admin/**")
                     .hasRole("ADMIN")
                     .anyRequest()

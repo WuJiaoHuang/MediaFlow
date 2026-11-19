@@ -2,7 +2,7 @@
 import { useAuthStore } from "../stores/auth";
 import { useRouter, useRoute } from "vue-router";
 import { roleNames } from "../types";
-import { House, User, UserFilled, SwitchButton } from "@element-plus/icons-vue";
+import { House, User, UserFilled, SwitchButton, FolderOpened, DataAnalysis, Clock, Collection } from "@element-plus/icons-vue";
 const auth = useAuthStore();
 const router = useRouter();
 const route = useRoute();
@@ -19,7 +19,7 @@ function logout() {
       <el-menu :default-active="route.path" router
         ><el-menu-item index="/"
           ><el-icon><House /></el-icon><span>工作台</span></el-menu-item
-        ><el-menu-item v-if="auth.isAdmin" index="/admin/users"
+        ><el-menu-item index="/media"><el-icon><FolderOpened /></el-icon><span>媒体库</span></el-menu-item><el-menu-item index="/media/stats"><el-icon><DataAnalysis /></el-icon><span>媒体统计</span></el-menu-item><el-menu-item index="/media/changes"><el-icon><Clock /></el-icon><span>修改记录</span></el-menu-item><el-menu-item v-if="auth.isAdmin" index="/media/categories"><el-icon><Collection /></el-icon><span>分类管理</span></el-menu-item><el-menu-item v-if="auth.isAdmin" index="/admin/users"
           ><el-icon><UserFilled /></el-icon><span>用户管理</span></el-menu-item
         ><el-menu-item index="/profile"
           ><el-icon><User /></el-icon><span>个人信息</span></el-menu-item
@@ -41,7 +41,7 @@ function logout() {
                 ? "用户管理"
                 : route.name === "profile"
                   ? "个人信息"
-                  : "工作台"
+                  : ({"media":"媒体库","media-stats":"媒体统计","media-changes":"修改记录","media-categories":"分类管理","media-detail":"素材详情"} as Record<string,string>)[String(route.name)] || "工作台"
             }}</span
           ></span
         >

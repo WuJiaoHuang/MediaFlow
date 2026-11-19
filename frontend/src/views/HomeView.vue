@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { useAuthStore } from "../stores/auth";
 import { roleNames } from "../types";
+import MediaDashboardView from "./MediaDashboardView.vue";
 const auth = useAuthStore();
 </script>
 <template>
@@ -28,6 +29,7 @@ const auth = useAuthStore();
       </div>
       <div class="banner-mark" aria-hidden="true">M<span>FLOW</span></div>
     </section>
+    <MediaDashboardView embedded />
     <div class="overview-grid">
       <section class="surface">
         <p class="section-kicker">当前身份</p>
@@ -69,7 +71,7 @@ const auth = useAuthStore();
       <div>
         <h3>关于当前工作空间</h3>
         <p class="muted">
-          当前已开放账号与权限管理。媒体素材、剪辑任务和协作反馈将在后续阶段接入。
+          媒体库、分类统计和修改记录已开放。正常素材对团队成员可读；后续任务授权将进一步限制访问范围。
         </p>
       </div>
     </section>

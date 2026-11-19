@@ -16,6 +16,12 @@ public interface RoleMapper {
   @Select("SELECT id FROM sys_role WHERE role_code=#{code}")
   Long findId(String code);
 
+  @Select(
+      "<script>SELECT ur.user_id,r.role_code FROM sys_user_role ur JOIN sys_role r ON"
+          + " r.id=ur.role_id WHERE ur.user_id IN <foreach collection='ids' item='id' open='('"
+          + " separator=',' close=')'>#{id}</foreach> ORDER BY r.id</script>")
+  List<com.mediaflow.vo.UserRoleRow> batchCodes(@Param("ids") List<Long> ids);
+
   @Delete("DELETE FROM sys_user_role WHERE user_id=#{userId}")
   void clear(Long userId);
 

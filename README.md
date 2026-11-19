@@ -1,7 +1,7 @@
 # MediaFlow
 
-企业内部媒体资产与剪辑协作管理系统。Stage 1 完成单体基础架构、MySQL 用户权限模型、登录认证和真实角色鉴权，以及可运行的管理前端。
-本阶段没有媒体库、文件库、剪辑任务、反馈、转码或 AI 业务实现。
+企业内部媒体资产与剪辑协作管理系统。Stage 1 完成认证与账号权限；Stage 2 新增媒体库、分类、真实统计、字段级修改记录以及受控预览下载。
+系统没有独立文件库，不包含剪辑任务、协同反馈、转码或 AI 业务。
 
 ## 技术栈与环境
 
@@ -38,6 +38,7 @@ mysql -u root -p --default-character-set=utf8mb4
 ```sql
 source sql/schema.sql;
 source sql/data.sql;
+source sql/migrations/V002__media_management.sql;
 ```
 
 `schema.sql` 的 IF NOT EXISTS 用于重复初始化，不承担后续版本迁移；未来结构变化需单独迁移脚本。`data.sql` 不覆盖已有用户密码、状态或已有角色；不要在生产环境导入开发测试数据。
@@ -126,12 +127,30 @@ python scripts/smoke-test.py
 
 完整证据、重跑说明及边界见 [Stage 1 报告](docs/stage1-report.md)。
 
+## Stage 2 媒体库
+
+已存在 Stage 1 数据库时，仅运行 `sql/migrations/V002__media_management.sql` 升级，不重建数据库或用户表。迁移可重复执行，但不负责修正手工改变的已有表结构。
+
+正常素材暂对所有已登录用户可读。ADMIN 上传、编辑全部素材、管理分类及归档；EDITOR 上传并只编辑本人素材；REVIEWER 只读。归档仅 ADMIN 可读。任务级数据隔离尚未实现。
+
+上传通过内容检测、MIME 和扩展名一致性检查；支持 JPEG / PNG / WebP、MP3 / WAV / M4A、MP4 / WebM，默认单文件 100 MB。STORAGE_ROOT 指定本地存储根目录，默认相对后端运行目录的 uploads。不得将它配置为反向代理静态目录。文件流经受控接口访问，不能通过 storage_key 直接读取。
+
+浏览器预览凭据为单素材、只读、120 秒有效的 HttpOnly / SameSite=Strict Cookie，详情页每 90 秒续签；没有在 URL 中放 JWT。详情、下载和每个 Range 请求仍检查当前用户和素材状态。
+
+页面：`/media` 媒体库、`/media/:id` 详情、`/media/categories` 分类管理（ADMIN）、`/media/stats` 统计、`/media/changes` 修改记录。工作台显示真实统计。
+
+浏览器核心验收（包括原有 6 项 Stage 1 回归）：`npm run test:e2e`。脚本使用程序生成的 PNG / WAV / MP4，创建唯一临时分类和素材，结束时仅清理本次生成的数据与文件。自定义 STORAGE_ROOT 时，将相同绝对路径设置为 E2E 进程的 MEDIAFLOW_STORAGE_ROOT。
+
+HTTP 媒体边界验收：根目录运行 `python scripts/media-smoke-test.py`，验证重复提交、非法文件 / 路径、真实 MySQL 事务回滚、排序 / 日期校验及请求体大小上限。自定义运行目标时配置 MEDIAFLOW_API 和 MEDIAFLOW_STORAGE_ROOT，与 E2E 相同。
+
+详细流程与接口：[媒体管理](docs/media-management.md)、[审计](docs/media-audit.md)、[Stage 2 报告](docs/stage2-report.md)。
+
 ## 后续阶段
 
-- Stage 2：媒体素材分类、统一存储适配、受控上传、筛选分页、预览；不建设独立文件库。
+- Stage 2 已完成媒体素材管理，后续按真实使用情况优化。
 - Stage 3：剪辑任务创建、分配及按参与者限制数据访问。
 - Stage 4：文字 / 语音 / 视频协作反馈与审核授权。
-- Stage 5：修改前后值审计、统计口径治理及生产运维加固。
+- Stage 5：扩展到跨业务审计、更多统计指标与生产运维加固。
 
 [架构](docs/architecture.md) · [数据库设计](docs/database-design.md) · [安全](docs/security.md)
 

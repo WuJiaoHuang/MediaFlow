@@ -11,3 +11,4 @@ uploads/
 .vscode/
 *.iml
 __pycache__/
+.ruff_cache/

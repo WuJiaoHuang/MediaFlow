@@ -55,8 +55,14 @@ public class UserService {
       q.and(w -> w.like("username", keyword).or().like("display_name", keyword));
     q.orderByDesc("id");
     var p = users.selectPage(new Page<>(page, size), q);
+    Map<Long, List<String>> grouped = new HashMap<>();
+    if (!p.getRecords().isEmpty())
+      for (var row : roles.batchCodes(p.getRecords().stream().map(SysUser::getId).toList()))
+        grouped.computeIfAbsent(row.userId, k -> new ArrayList<>()).add(row.roleCode);
     return new PageView<>(
-        p.getRecords().stream().map(u -> UserView.of(u, roles.codes(u.getId()))).toList(),
+        p.getRecords().stream()
+            .map(u -> UserView.of(u, grouped.getOrDefault(u.getId(), List.of())))
+            .toList(),
         p.getTotal(),
         page,
         size);

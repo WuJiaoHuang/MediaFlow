@@ -1,0 +1,13 @@
+package com.mediaflow.mapper;
+
+import com.baomidou.mybatisplus.core.mapper.BaseMapper;
+import com.baomidou.mybatisplus.core.metadata.IPage;
+import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
+import com.mediaflow.dto.AuditQuery;
+import com.mediaflow.entity.MediaChangeLog;
+import org.apache.ibatis.annotations.Param;
+
+public interface MediaChangeLogMapper extends BaseMapper<MediaChangeLog> {
+  IPage<MediaChangeLog> search(
+      Page<MediaChangeLog> page, @Param("q") AuditQuery query, @Param("admin") boolean admin);
+}

@@ -586,3 +586,128 @@ h3 {
     display: none;
   }
 }
+
+.media-filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-bottom: 24px;
+}
+.media-filters > .el-input,
+.media-filters > .el-select {
+  width: 180px;
+}
+.media-filters > .el-input-number {
+  width: 140px;
+}
+.media-filters > .el-date-editor {
+  max-width: 390px;
+  min-width: 260px;
+}
+.stats-grid {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 16px;
+  margin: 24px 0;
+}
+.stat-card strong {
+  font-size: 32px;
+  color: #294a93;
+}
+.stat-card p {
+  margin-bottom: 12px;
+}
+.category-chart {
+  margin-bottom: 24px;
+}
+.chart-row {
+  display: grid;
+  grid-template-columns: 160px 1fr 40px;
+  gap: 18px;
+  align-items: center;
+  margin: 18px 0;
+  font-size: 13px;
+}
+.chart-track {
+  height: 10px;
+  background: #edf2fc;
+  border-radius: 6px;
+  overflow: hidden;
+}
+.chart-track > div {
+  height: 100%;
+  background: #5879e8;
+  border-radius: 6px;
+}
+.chart-row strong {
+  text-align: right;
+}
+.media-preview {
+  min-height: 180px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #172a43;
+  margin-bottom: 24px;
+}
+.media-preview img,
+.media-preview video {
+  max-height: 480px;
+  max-width: 100%;
+  border-radius: 6px;
+}
+.media-preview audio {
+  width: min(600px, 100%);
+}
+.detail-metadata {
+  margin-bottom: 24px;
+}
+.download-link {
+  display: inline-flex;
+  align-items: center;
+  background: #365feb;
+  color: white;
+  font-size: 13px;
+  border-radius: 7px;
+  padding: 9px 16px;
+}
+.preserve-text {
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+.audit-value {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.upload-hint {
+  font-size: 12px;
+  margin-top: 12px;
+  margin-bottom: 0;
+}
+@media (max-width: 1000px) {
+  .stats-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+  .chart-row {
+    grid-template-columns: 110px 1fr 30px;
+  }
+}
+@media (max-width: 700px) {
+  .stats-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .media-filters > .el-input,
+  .media-filters > .el-select {
+    width: 100%;
+  }
+  .chart-row {
+    grid-template-columns: 90px 1fr 24px;
+    gap: 10px;
+  }
+  .media-preview {
+    padding: 12px;
+  }
+  .stat-card strong {
+    font-size: 28px;
+  }
+}

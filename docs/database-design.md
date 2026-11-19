@@ -1,6 +1,6 @@
 # 数据库设计
 
-## 本阶段落地
+## Stage 1 落地
 
 数据库 `mediaflow`，MySQL 8、InnoDB、utf8mb4。DDL 见 `sql/schema.sql`，本地开发种子见 `sql/data.sql`。
 
@@ -14,7 +14,7 @@
 
 当前时间由 Java / MySQL 使用本地 Asia/Shanghai 语义，DATETIME 无时区；跨时区部署应统一 UTC 并明确迁移。种子 SQL 可重复导入，不覆盖已有账号密码、状态或已有角色。数据库自动主键可能存在跳号，这是正常现象。
 
-## 后续实体关系规划（未建表）
+## 后续实体关系规划（任务、反馈与通用审计仍未建表）
 
 ```mermaid
 erDiagram
@@ -48,3 +48,23 @@ erDiagram
 数据级授权必须覆盖列表、详情、预览 / 下载、更新、统计与反馈：ADMIN 全部；EDITOR 有效分配；REVIEWER 有效审核授权。统计应先应用权限条件，再按约定状态、分类和去重主键计算，避免关联表 JOIN 造成重复计数。
 
 后续所有表通过明确迁移脚本演进，避免在启动时静默改表；删除策略与审计保留策略需按业务确认后落实。
+
+
+## Stage 2 已落地媒体模型
+
+迁移：sql/migrations/V002__media_management.sql。只增加四张表，不 DROP / TRUNCATE / ALTER 用户表，不覆盖种子账号或既有媒体数据；命名迁移脚本需显式执行，应用启动不自动 DDL。
+
+| 表 | 主要列与约束 |
+| --- | --- |
+| media_file | id、original_filename、storage_key（唯一）、mime_type、file_size（>0）、uploaded_by（用户外键）、created_at |
+| media_category | id、category_name（全局唯一）、parent_id（自引用 RESTRICT）、sort_order、status（0/1）、created_at、updated_at |
+| media_asset | id、title、description、file_id（唯一外键）、category_id（可空 RESTRICT）、media_type（IMAGE/AUDIO/VIDEO）、created_by、updated_by、created_at、updated_at、status（ACTIVE/ARCHIVED）、version、upload_key；(created_by,upload_key) 唯一 |
+| media_change_log | id、asset_id、operator_id、operator_name、asset_title、operation_type、field_name、old_value、new_value、old_label、new_label、created_at；素材与操作人 RESTRICT 外键 |
+
+素材按 status/created_at/id、category_id/status、media_type/status、created_by/created_at 索引；日志按 asset_id/created_at/id 和 operator_id/created_at/id 索引；分类 parent_id 索引。业务仅归档素材，文件元数据与文件保留，分类删除必须检查所有引用（包括归档）。
+
+两级分类与防循环由 Service 锁定并校验，外键防止悬空父节点；应用不开放随意写 SQL。分类 ID 的审计旧 / 新值不是外键，配合名称快照在分类合法删除后仍能追溯。
+
+当前 media_asset 使用可空 category_id；MyBatis 更新该字段与分类 parent_id 时显式允许写 NULL，避免“取消分类”被框架默认的忽略空值策略吞掉。version 由锁定更新显式增加。
+
+上述旧规划中的 media_version、task_*、collaboration_feedback、modification_audit 仍是后续范围。当前使用 media_change_log 落地媒体字段审计，不新增通用审计表或任务权限表。

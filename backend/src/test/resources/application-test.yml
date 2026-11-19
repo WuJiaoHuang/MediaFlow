@@ -7,7 +7,10 @@ spring:
   sql:
     init:
       mode: always
-      schema-locations: classpath:test-schema.sql
+      schema-locations: classpath:test-schema.sql,classpath:media-schema.sql
 mediaflow:
   jwt-secret: test-only-random-looking-secret-not-for-deployment-0123456789
   token-ttl-seconds: 1800
+
+  storage-root: ./target/test-uploads
+  max-file-bytes: 1048576
