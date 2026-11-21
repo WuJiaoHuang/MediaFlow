@@ -23,6 +23,7 @@ public class EditingTaskService {
   private final MediaAssetMapper assets;
   private final AuthorizationService auth;
   private final ObjectMapper json;
+  private final TaskFeedbackMapper feedback;
 
   public EditingTaskService(
       EditingTaskMapper tasks,
@@ -31,7 +32,9 @@ public class EditingTaskService {
       RoleMapper roles,
       MediaAssetMapper assets,
       AuthorizationService auth,
-      ObjectMapper json) {
+      ObjectMapper json,
+      TaskFeedbackMapper feedback) {
+    this.feedback = feedback;
     this.tasks = tasks;
     this.logs = logs;
     this.users = users;
@@ -227,8 +230,12 @@ public class EditingTaskService {
       t.setDueAt(req.dueAt());
       write(t, req.version());
       if (assetChange) {
-        tasks.clearAssets(id);
-        for (Long assetId : ids) tasks.link(id, assetId);
+        for (Long assetId : oldIds)
+          if (!ids.contains(assetId)) {
+            if (feedback.assetReferences(id, assetId) > 0) throw conflict("已有反馈的素材关联不能移除");
+            tasks.unlink(id, assetId);
+          }
+        for (Long assetId : ids) if (!oldIds.contains(assetId)) tasks.link(id, assetId);
       }
     }
     return tasks.detail(id);
@@ -268,9 +275,24 @@ public class EditingTaskService {
     }
     if (!t.getVersion().equals(req.version())) throw conflict("任务版本冲突，请刷新后重试");
     if (!from.equals(t.getStatus())) throw conflict("当前状态不允许此操作");
+    String reason = action.equals("reject") ? req.reason().trim() : null;
+    if (action.equals("submit")) {
+      long count = feedback.unresolved(id);
+      if (count > 0) {
+        if (!auth.admin(actor)) throw conflict("仍有 " + count + " 条未解决反馈，不能提交审核");
+        if (req.reason() == null || req.reason().isBlank() || req.reason().trim().length() > 1800)
+          throw invalid("管理员例外提交必须填写原因（1..1800 字）");
+        op = "SUBMIT_OVERRIDE";
+        reason = "未解决数量=" + count + "；" + req.reason().trim();
+      }
+    }
+    if (action.equals("approve")) {
+      long count = feedback.unconfirmed(id);
+      if (count > 0) throw conflict("仍有 " + count + " 条反馈尚未确认解决，不能审核通过");
+    }
     t.setStatus(to);
     write(t, req.version());
-    log(t, actor, op, "status", from, to, action.equals("reject") ? req.reason().trim() : null);
+    log(t, actor, op, "status", from, to, reason);
     return tasks.detail(id);
   }
 }

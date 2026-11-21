@@ -80,3 +80,20 @@ editing_task_asset：id、task_id / asset_id RESTRICT 外键，(task_id,asset_id
 editing_task_log：id、task_id / operator_id RESTRICT 外键、operator_name 快照、operation_type、field_name、old_value / new_value TEXT、reason(2000)、created_at；按 task/time/id 和 operator/time 索引。任务创建、字段调整、状态动作均写入，不提供日志修改 / 删除 API。
 
 原先规划的 edit_task / task_assignment / review_authorization 在本阶段合并为 editing_task 的单执行人 / 单审核人字段，匹配当前明确需求；历史分配变更由日志保留。Stage 4 如有多人审核等新需求再以独立迁移演进，不提前创建协同反馈表。
+
+## Stage 4 已落地反馈模型
+
+增量迁移 `V004__task_feedback.sql`，只创建以下表，无 DROP / TRUNCATE / 旧表重建。CREATE TABLE IF NOT EXISTS 支持重复执行，不修复手工更改的已有结构。
+
+|表|字段与约束|
+|---|---|
+|task_feedback|task_id、可空 asset_id、asset_title / media_type 快照、creator_id / name、type、content(4000)、可空 timecode_ms、四态 status、create_key、时间戳、version；(task_id,creator_id,create_key) 唯一；任务 / 用户外键；(task_id,asset_id) 复合外键引用 editing_task_asset 唯一键；type / status / 非负 timecode CHECK|
+|task_feedback_reply|feedback_id、creator_id / name、content(4000)、created_at；反馈 / 用户外键|
+|task_feedback_attachment|feedback_id 唯一、original_filename、storage_key 唯一、mime_type、file_size、uploaded_by、created_at；反馈 / 用户外键；不含二进制|
+|task_feedback_log|feedback_id、operator_id / name、operation_type、old_status、new_status、可空 reason(2000)、created_at；反馈 / 用户外键|
+
+反馈按 task / created / id 和 task / status / type / asset 索引；回复与日志按 feedback / created / id 索引；其余外键由 MySQL 建立支持索引。列表、回复、历史使用数据库 LIMIT 分页，稳定排序包含 id，不全量加载过滤。附件不插入 media_file / media_asset，不改变媒体统计。
+
+引用素材有意见后，ADMIN 仍可更改任务要求、分配、追加素材，但不能移除被引用的关联；事务内先检查再差异更新，复合外键再次兜底。没有删除反馈或随意改写历史的 API。归档保留素材与反馈引用，既有反馈文本、附件按当前任务授权可读，原素材预览继续按归档矩阵处理。
+
+旧规划中的 collaboration_feedback / feedback_attachment 由上述实际表替代；多人审核、跨业务通用审计和文件对账属于后续阶段。

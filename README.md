@@ -1,7 +1,7 @@
 # MediaFlow
 
 企业内部媒体资产与剪辑协作管理系统。Stage 1 完成认证与账号权限；Stage 2 新增媒体库、分类、真实统计、字段级修改记录以及受控预览下载。
-Stage 3 提供剪辑任务、分配、审核状态流转及任务级授权。系统没有独立文件库，不包含 Stage 4 协同反馈、转码或 AI 业务。
+Stage 3 提供剪辑任务、分配、审核状态流转及任务级授权。Stage 4 实现任务内文字、语音、视频反馈、回复与意见处理闭环。系统没有独立文件库，不包含转码或 AI 业务。
 
 ## 技术栈与环境
 
@@ -40,6 +40,7 @@ source sql/schema.sql;
 source sql/data.sql;
 source sql/migrations/V002__media_management.sql;
 source sql/migrations/V003__editing_tasks.sql;
+source sql/migrations/V004__task_feedback.sql;
 ```
 
 `schema.sql` 的 IF NOT EXISTS 用于重复初始化，不承担后续版本迁移；未来结构变化需单独迁移脚本。`data.sql` 不覆盖已有用户密码、状态或已有角色；不要在生产环境导入开发测试数据。
@@ -150,7 +151,7 @@ HTTP 媒体边界验收：根目录运行 `python scripts/media-smoke-test.py`�
 
 - Stage 2 已完成媒体素材管理，后续按真实使用情况优化。
 - Stage 3 已完成剪辑任务、分配、审核状态流转与共享 / 受限媒体授权。
-- Stage 4：文字 / 语音 / 视频协作反馈与审核授权。
+- Stage 4 已完成文字 / 语音 / 视频反馈、回复、处理确认与独立附件授权。
 - Stage 5：扩展到跨业务审计、更多统计指标与生产运维加固。
 
 [架构](docs/architecture.md) · [数据库设计](docs/database-design.md) · [安全](docs/security.md)
@@ -182,3 +183,19 @@ npm run dev -- --port 5180
 验收：`mvn -f backend/pom.xml clean verify`；前端 `npm run typecheck`、`npm run build`、`npm run test:e2e`（包含旧用例与任务多角色流程）。真实 HTTP/MySQL 验收运行 `python scripts/task-smoke-test.py`；该脚本仅供本机开发环境，可通过 MEDIAFLOW_ADMIN / EDITOR / REVIEWER 的 `_USERNAME` / `_PASSWORD` 变量覆盖登录凭据，省略时读取本文明确标记的开发种子账号。新建测试账号的密码运行时随机生成，不写入源码或输出。
 
 自定义服务端口时设置 MEDIAFLOW_API；自定义文件目录时将同一绝对路径设置为 MEDIAFLOW_STORAGE_ROOT。全部测试只清理本次返回的临时任务、素材和用户 ID，不清空已有数据库。[Stage 3 详细报告](docs/stage3-report.md)。
+
+## Stage 4 多媒体协作反馈
+
+已有 Stage 3 环境只执行 `sql/migrations/V004__task_feedback.sql`；不要重建数据库或重跑种子。新增四张反馈表，保留已有记录。任务详情“协作反馈”支持素材 / 类型 / 状态筛选、时间排序、分页及未解决数量；反馈详情 `/tasks/:id/feedback/:feedbackId` 展示正文、受控附件、回复和完整历史。
+
+PROCESSING 允许当前任务成员提出反馈；REVIEWING 仅当前审核人 / ADMIN 提出反馈；PENDING / COMPLETED 反馈只读。当前执行人 / ADMIN 标记已处理，仍有任务授权的作者、当前审核人 / ADMIN 确认或带原因重新打开。普通提交审核阻止 OPEN / REOPENED 并显示具体数量；ADMIN 可在“管理员例外提交”显式说明原因，留下 SUBMIT_OVERRIDE。审批必须全部 CLOSED。PROCESSING 同样允许确认，避免死锁。任务退回不改写意见状态。
+
+音频支持浏览器录音或 MP3 / WAV / M4A / WebM 文件，默认 10 MiB；视频支持浏览器录像或 MP4 / WebM 文件，默认 25 MiB。浏览器录音最长 120 秒、录像 60 秒；导入文件只检查文件大小和容器，不声称校验时长。录制需要 HTTPS 或 localhost 的安全上下文和设备权限；不支持 / 权限拒绝 / 录制异常时仍可上传本地文件。上传显示进度，可取消和重试。配置 `FEEDBACK_AUDIO_MAX_BYTES` / `FEEDBACK_VIDEO_MAX_BYTES` 调整服务端大小上限（界面提示当前为默认值）。
+
+附件使用独立元数据和 task / feedback / attachment 绑定凭据，每次播放、Range、下载和续签检查当前任务权限。共享素材访问权不能授予反馈附件访问权；改派、角色撤销、禁用会作用于后续请求。附件不产生媒体资产、不计入媒体统计，不替换原素材。反馈引用的素材关系不能移除，以保留可追溯历史。
+
+API 根路径 `/api/tasks/{taskId}/feedback`：GET 分页查询、POST JSON 文字 / multipart 音视频；GET `/summary`；GET `/{id}`、`/{id}/replies`、`/{id}/logs`；POST `/{id}/replies`、`/{id}/resolve|close|reopen`；POST `/{id}/attachments/{attachmentId}/access`；GET/HEAD 对应 `/content|download`。创建要求 `Idempotency-Key`（8..64 位字母数字、下划线或短横线），重试返回同一记录；回复和状态请求要求 version。文本不解析 HTML。
+
+验证：`mvn -f backend/pom.xml clean verify`，前端 `npm run typecheck` / `npm run build` / `npm run test:e2e`。浏览器验收先生成真实 Chromium WebM 录制样本到 `.local`，再运行 `python scripts/feedback-smoke-test.py` 验证真实 MySQL / HTTP；先决条件与本地凭据覆盖方式同 Stage 3。脚本只用于本机开发库，清理本次返回的临时 ID 和随机存储键。不要在生产库运行验收脚本。
+
+[反馈状态与权限设计](docs/feedback-workflow.md) · [Stage 4 验收报告](docs/stage4-report.md)。

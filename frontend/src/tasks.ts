@@ -59,6 +59,7 @@ export const taskOperations: Record<string, string> = {
   ASSETS_CHANGED: "调整关联素材",
   START: "开始处理",
   SUBMIT: "提交审核",
+  SUBMIT_OVERRIDE: "管理员例外提交",
   APPROVE: "审核通过",
   REJECT: "审核退回",
 };

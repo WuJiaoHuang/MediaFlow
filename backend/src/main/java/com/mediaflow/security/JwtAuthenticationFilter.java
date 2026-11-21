@@ -37,6 +37,8 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
     Long previewAsset = null;
     Long previewTask = null;
     String previewToken = null;
+    Long feedbackTask = null, feedbackId = null, attachmentId = null;
+    String feedbackToken = null;
     if (h == null && (req.getMethod().equals("GET") || req.getMethod().equals("HEAD"))) {
       var match =
           java.util.regex.Pattern.compile("^/api/media/assets/([0-9]+)/(content|download)$")
@@ -61,13 +63,33 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
               previewToken = cookie.getValue();
       }
     }
-    if (h != null || previewToken != null) {
+    if (h == null && (req.getMethod().equals("GET") || req.getMethod().equals("HEAD"))) {
+      var match =
+          java.util.regex.Pattern.compile(
+                  "^/api/tasks/([0-9]+)/feedback/([0-9]+)/attachments/([0-9]+)/(content|download)$")
+              .matcher(req.getServletPath());
+      if (match.matches())
+        try {
+          feedbackTask = Long.valueOf(match.group(1));
+          feedbackId = Long.valueOf(match.group(2));
+          attachmentId = Long.valueOf(match.group(3));
+          if (req.getCookies() != null)
+            for (var cookie : req.getCookies())
+              if (cookie.getName().equals("mf_feedback_" + attachmentId))
+                feedbackToken = cookie.getValue();
+        } catch (NumberFormatException ignored) {
+          feedbackToken = null;
+        }
+    }
+    if (h != null || previewToken != null || feedbackToken != null) {
       try {
         if (h != null && !h.startsWith("Bearer ")) throw new IllegalArgumentException();
         Long id =
             h != null
                 ? jwt.verify(h.substring(7))
-                : jwt.verifyPreview(previewToken, previewAsset, previewTask);
+                : feedbackToken != null
+                    ? jwt.verifyFeedback(feedbackToken, feedbackTask, feedbackId, attachmentId)
+                    : jwt.verifyPreview(previewToken, previewAsset, previewTask);
         var user = users.view(id);
         if (user.status() != 1) throw new IllegalArgumentException();
         var auth =

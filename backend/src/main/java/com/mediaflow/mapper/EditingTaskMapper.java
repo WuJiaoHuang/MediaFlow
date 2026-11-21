@@ -31,6 +31,9 @@ public interface EditingTaskMapper extends BaseMapper<EditingTask> {
   @Delete("DELETE FROM editing_task_asset WHERE task_id=#{id}")
   void clearAssets(Long id);
 
+  @Delete("DELETE FROM editing_task_asset WHERE task_id=#{taskId} AND asset_id=#{assetId}")
+  void unlink(@Param("taskId") Long taskId, @Param("assetId") Long assetId);
+
   @Update(
       "UPDATE editing_task SET"
           + " title=#{t.title},description=#{t.description},assignee_id=#{t.assigneeId},reviewer_id=#{t.reviewerId},priority=#{t.priority},due_at=#{t.dueAt},status=#{t.status},updated_at=#{t.updatedAt},version=#{t.version}"

@@ -107,9 +107,7 @@ async function save() {
     await router.replace("/tasks/" + response.data.data.id);
   } catch (e: any) {
     error.value =
-      e.response?.status === 409
-        ? "任务已发生变化或已完成，请重新加载后检查内容再保存"
-        : e.response?.data?.message || "任务保存失败";
+      e.response?.data?.message || "任务保存失败，请重新加载后检查内容";
   } finally {
     busy.value = false;
   }

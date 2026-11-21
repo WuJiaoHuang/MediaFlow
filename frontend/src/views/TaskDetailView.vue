@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import FeedbackPanel from "../components/FeedbackPanel.vue";
 import { ref, computed, onMounted } from "vue";
 import { useRoute } from "vue-router";
 import { ElMessage } from "element-plus";
@@ -26,6 +27,7 @@ const busy = ref(false);
 const error = ref("");
 const actionError = ref("");
 const reject = ref(false);
+const override = ref(false);
 const reason = ref("");
 const execute = computed(
   () =>
@@ -81,17 +83,17 @@ async function action(name: string) {
     await taskAction(
       task.value,
       name,
-      name === "reject" ? reason.value : undefined,
+      name === "reject" || (name === "submit" && override.value)
+        ? reason.value
+        : undefined,
     );
     reject.value = false;
+    override.value = false;
     reason.value = "";
     ElMessage.success("任务状态已更新");
     await load();
   } catch (e: any) {
-    actionError.value =
-      e.response?.status === 409
-        ? "任务已被其他人更新或状态已变化，请重新加载后重试"
-        : e.response?.data?.message || "操作失败";
+    actionError.value = e.response?.data?.message || "操作失败";
   } finally {
     busy.value = false;
   }
@@ -172,6 +174,13 @@ onMounted(load);
             :loading="busy"
             @click="action('submit')"
             >提交审核</el-button
+          ><el-button
+            v-if="auth.isAdmin && task.status === 'PROCESSING'"
+            @click="
+              reason = '';
+              override = true;
+            "
+            >管理员例外提交</el-button
           ><template v-if="review && task.status === 'REVIEWING'"
             ><el-button
               type="success"
@@ -247,6 +256,7 @@ onMounted(load);
           ></el-table
         >
       </section>
+      <FeedbackPanel :key="task.version" :task="task" :assets="media" />
       <section class="surface task-section">
         <h3>任务操作历史</h3>
         <el-table :data="logs" empty-text="暂无操作历史"
@@ -268,7 +278,9 @@ onMounted(load);
             ><template #default="{ row }"
               ><span class="audit-value">{{ row.newValue ?? "—" }}</span>
               <p v-if="row.reason" class="reject-reason">
-                退回原因：{{ row.reason }}
+                {{
+                  row.operationType === "REJECT" ? "退回原因" : "操作原因"
+                }}：{{ row.reason }}
               </p></template
             ></el-table-column
           ><el-table-column label="时间" min-width="170"
@@ -284,6 +296,27 @@ onMounted(load);
           @current-change="loadLogs"
         />
       </section>
+      <el-dialog
+        v-model="override"
+        title="管理员例外提交"
+        width="min(520px,94vw)"
+        ><p>
+          仅允许显式说明原因后跳过未解决反馈的提交检查；审批仍要求全部确认。
+        </p>
+        <el-input
+          v-model="reason"
+          type="textarea"
+          aria-label="例外提交原因"
+          maxlength="1800"
+        />
+        <p v-if="actionError" class="error">{{ actionError }}</p>
+        <template #footer
+          ><el-button @click="override = false">取消</el-button
+          ><el-button :loading="busy" type="warning" @click="action('submit')"
+            >确认例外提交</el-button
+          ></template
+        ></el-dialog
+      >
       <el-dialog v-model="reject" title="审核退回" width="min(520px,94vw)"
         ><el-form label-position="top" @submit.prevent="action('reject')"
           ><el-form-item label="退回原因" required

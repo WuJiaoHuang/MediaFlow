@@ -15,15 +15,7 @@ public class MediaTypeValidator {
   public record Detected(String mime, String mediaType) {}
 
   public Detected detect(MultipartFile file) throws IOException {
-    String name = file.getOriginalFilename();
-    if (name == null
-        || name.isBlank()
-        || name.length() > 255
-        || name.contains("/")
-        || name.contains("\\")
-        || name.contains("..")
-        || name.codePoints().anyMatch(c -> c < 32 || c == 127))
-      throw new BusinessException(HttpStatus.BAD_REQUEST, "文件名不合法");
+    String name = validFilename(file);
     String actual;
     try (var in = new BufferedInputStream(file.getInputStream())) {
       actual = canonical(tika.detect(in));
@@ -86,6 +78,19 @@ public class MediaTypeValidator {
     return new Detected(
         actual,
         actual.startsWith("image/") ? "IMAGE" : actual.startsWith("audio/") ? "AUDIO" : "VIDEO");
+  }
+
+  public static String validFilename(MultipartFile file) {
+    String name = file.getOriginalFilename();
+    if (name == null
+        || name.isBlank()
+        || name.length() > 255
+        || name.contains("/")
+        || name.contains("\\")
+        || name.contains("..")
+        || name.codePoints().anyMatch(c -> c < 32 || c == 127))
+      throw new BusinessException(HttpStatus.BAD_REQUEST, "文件名不合法");
+    return name;
   }
 
   private boolean webmDocType(byte[] data) {

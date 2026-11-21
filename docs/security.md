@@ -58,3 +58,13 @@ Stage 2 的 ACTIVE 全员可读现保留为 LIBRARY；Stage 3 的 RESTRICTED 仅
 操作日志身份来自 CurrentUser，不信任 operatorId；前端以文本插值展示日志与要求，避免注入 HTML。状态不由任意请求字段直接设置，只接受四个明确动作。事务 / 行锁 / 带旧版本条件的 UPDATE 防止重复流转和并发覆盖；日志失败回滚任务或分配，不开独立日志事务。
 
 受限素材正常状态访问不自动授予媒体编辑权，EDITOR 仍仅可编辑本人上传的素材。任务授权没有增加上传目录静态映射、任意 storage_key 访问、服务端 Token 黑名单或 Stage 4 反馈功能。
+
+## Stage 4 反馈与附件授权
+
+矩阵见 feedback-workflow.md。反馈对象授权只从当前任务继承，旧作者 / 上传者身份没有额外读取权。无任务授权、跨 task / feedback / asset / attachment 父子关系统一 404；有读权限但具体写身份不足 403；状态与 version 冲突 409；非法参数 400；文件大小 413；内容不匹配 415。列表只在授权任务内 SQL 分页。
+
+附件预览 JWT 使用 purpose=feedback，绑定 task / feedback / attachment。Cookie 名 mf_feedback_{attachmentId}，Path 限定该附件，HttpOnly / SameSite Strict / HTTPS Secure，有效 120 秒。过滤器仅在反馈 content/download 的 GET/HEAD 使用，不能作 Bearer、访问普通媒体或其他 API，不能变换父级 ID；每次重新读取用户状态 / 角色，再检查当前任务权限和附件父子关系。媒体 LIBRARY、RESTRICTED 和原媒体预览 Cookie 不能授予反馈附件权。Range / 下载 / 续签没有旁路。
+
+正文 / 回复最多 4000 字，重开原因最多 2000 字，ADMIN 例外提交原因最多 1800 字并记录未解决数量，所有身份取 CurrentUser。Vue 文本插值渲染，禁止 v-html。原始文件名拒绝路径与控制字符；存储键不序列化给客户端，不接收客户端 storageKey；复用本地 UUID/CREATE_NEW 安全存储，目录不得静态暴露。
+
+文件内容探测和容器结构检查不等同完整解码或杀毒；未引入时长提取。已下载 / 缓冲的数据不能远程撤回；撤权作用于后续请求，单次正在发送的响应不强制中断。数据库回滚清理新文件已经通过故障注入验证；进程崩溃和清理 IO 失败仍可能留下孤立文件，没有声称文件系统与 MySQL 原子提交，也没有实现 Stage 5 清理平台。

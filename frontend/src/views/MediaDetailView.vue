@@ -17,6 +17,16 @@ import {
 import type { ApiResponse, Page } from "../types";
 import ChangeTable from "../components/ChangeTable.vue";
 const route = useRoute();
+function seekTimecode(event: Event) {
+  const media = event.target as HTMLMediaElement;
+  const ms = Number(route.query.timecodeMs);
+  if (Number.isFinite(ms) && ms >= 0) {
+    const seconds = ms / 1000;
+    media.currentTime = Number.isFinite(media.duration)
+      ? Math.min(seconds, media.duration)
+      : seconds;
+  }
+}
 const id = Number(route.params.id);
 const taskId = route.query.taskId ? Number(route.query.taskId) : undefined;
 const scopeDialog = ref(false);
@@ -222,11 +232,13 @@ onUnmounted(() => {
             :src="access.contentUrl"
             controls
             preload="metadata"
+            @loadedmetadata="seekTimecode"
             @error="previewError = true" /><video
             v-else
             :src="access.contentUrl"
             controls
             preload="metadata"
+            @loadedmetadata="seekTimecode"
             @error="previewError = true"
         /></template>
       </section>

@@ -36,6 +36,11 @@ export const router = createRouter({
           component: () => import("./views/TaskDetailView.vue"),
         },
         {
+          path: "tasks/:id(\\d+)/feedback/:feedbackId(\\d+)",
+          name: "feedback-detail",
+          component: () => import("./views/FeedbackDetailView.vue"),
+        },
+        {
           path: "media",
           name: "media",
           component: () => import("./views/MediaListView.vue"),

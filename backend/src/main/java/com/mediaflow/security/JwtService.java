@@ -97,6 +97,37 @@ public class JwtService {
     return Long.valueOf(jwt.getSubject());
   }
 
+  public String issueFeedback(Long userId, Long taskId, Long feedbackId, Long attachmentId) {
+    var now = Instant.now();
+    return encoder
+        .encode(
+            JwtEncoderParameters.from(
+                JwsHeader.with(MacAlgorithm.HS256).build(),
+                JwtClaimsSet.builder()
+                    .issuer("mediaflow")
+                    .subject(userId.toString())
+                    .issuedAt(now)
+                    .expiresAt(now.plusSeconds(120))
+                    .claim("purpose", "feedback")
+                    .claim("task", taskId)
+                    .claim("feedback", feedbackId)
+                    .claim("attachment", attachmentId)
+                    .build()))
+        .getTokenValue();
+  }
+
+  public Long verifyFeedback(String token, Long taskId, Long feedbackId, Long attachmentId) {
+    var j = decoder.decode(token);
+    if (j.getExpiresAt() == null
+        || j.getIssuedAt() == null
+        || !"feedback".equals(j.getClaimAsString("purpose"))
+        || !taskId.toString().equals(String.valueOf((Object) j.getClaim("task")))
+        || !feedbackId.toString().equals(String.valueOf((Object) j.getClaim("feedback")))
+        || !attachmentId.toString().equals(String.valueOf((Object) j.getClaim("attachment"))))
+      throw new IllegalArgumentException("Invalid feedback scope");
+    return Long.valueOf(j.getSubject());
+  }
+
   public long ttl() {
     return ttl;
   }

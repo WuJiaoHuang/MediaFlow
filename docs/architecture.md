@@ -57,3 +57,13 @@ AuthorizationService 负责对象级任务 / 媒体判断；AccessContext 只由
 任务调整和状态动作持有行锁、校验客户端 version，再以旧 version 作为 UPDATE 条件。业务写入与日志同一事务，日志失败使业务回滚。并发同版本请求只允许一次成功。已完成任务不可管理编辑或重开，管理员代办不能越过状态机。
 
 浏览器任务素材链接携带 taskId；预览凭据绑定 task / asset，过滤器验证其用途和上下文，Service 每次重新查询当前授权。正常媒体入口仍遵守基础范围与任务授权的并集；任务入口必须额外通过指定任务授权。旧 Stage 2 实例已在本轮联调中由新后端替换，避免测试入口仍运行旧授权实现。
+
+## Stage 4 反馈链路
+
+FeedbackController → FeedbackService → TaskFeedback / Reply / Attachment / Log Mapper。授权仍复用 AuthorizationService.task；附件授权先检查当前任务，再检查反馈属于任务、附件属于反馈。素材基础访问矩阵不参与附件放行。业务没有独立文件库、物理文件复制或新增媒体资产。
+
+创建、回复和状态变更统一先锁 editing_task，再锁反馈（如已存在），检查当前任务状态、具体动作身份和反馈 version；日志与状态同一数据库事务。TaskService 的提交 / 审批也锁同一任务，因此新意见、意见处理与任务流转序列化。任务编辑按差异更新素材关联，反馈外键阻止删除仍被意见引用的关联。创建重试在任务锁下按 task / creator / createKey 去重。
+
+本地 FileStorage 承担随机键与安全写盘；FeedbackMediaValidator 校验类型、大小、真实内容、MIME 和扩展名，WebM 检查 DocType 与 TrackType，MP4 / M4A 检查品牌和媒体 handler。WebM 只读有界前缀；ISO 检查内存读取受反馈文件大小上限约束。没有引入 FFmpeg、解码、转码或时长探测。数据库回滚回调清理本次文件；进程异常终止的孤立文件留作后续对账边界。
+
+前端任务详情新增 FeedbackPanel / Composer / Recorder，详情页独立懒加载；MediaRecorder 输出 Blob 通过 multipart 上传，不存 Base64。录制页面管理设备轨道、计时器和 ObjectURL，离开时释放；原生播放器使用短期 HttpOnly 反馈凭据，90 秒续签。原素材时间码链接保留任务上下文并在加载元数据后定位，实际可跳转范围受浏览器解码和时长约束。
